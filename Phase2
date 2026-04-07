@@ -1,0 +1,37 @@
+#include <Wire.h>
+#include "Config.h"
+#include "SensorManager.h"
+#include "SignalProcessor.h"
+
+SensorManager sensor;
+SignalProcessor processor;
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+
+  Serial.println("Phase 2: Sensor Test");
+
+  if (!sensor.begin()) {
+    Serial.println("Sensor FAILED");
+    while (1);
+  }
+
+  processor.begin();
+}
+
+void loop() {
+  SensorSample sample;
+  SignalQuality quality;
+  HeartRateState hr;
+
+  sensor.readSample(sample, quality, millis());
+  processor.update(sample, quality, hr, millis());
+
+  if (hr.instantValid) {
+    Serial.print("BPM: ");
+    Serial.println(hr.instantBpm);
+  }
+
+  delay(10);
+}
