@@ -1,0 +1,48 @@
+#include <Wire.h>
+#include "Config.h"
+#include "SensorManager.h"
+#include "SignalProcessor.h"
+#include "EpisodeDetector.h"
+#include "RTCManager.h"
+
+SensorManager sensor;
+SignalProcessor processor;
+EpisodeDetector detector;
+RTCManager rtc;
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+
+  sensor.begin();
+  processor.begin();
+  detector.begin();
+  rtc.begin();
+
+  Serial.println("Phase 4: Episode Detection");
+}
+
+void loop() {
+  SensorSample sample;
+  SignalQuality quality;
+  HeartRateState hr;
+  DateTimeParts now = rtc.now();
+
+  sensor.readSample(sample, quality, millis());
+  processor.update(sample, quality, hr, millis());
+
+  EpisodeRecord event;
+  bool started, ended;
+
+  detector.update(hr, now, event, started, ended);
+
+  if (started) {
+    Serial.println("🚨 Episode STARTED");
+  }
+
+  if (ended) {
+    Serial.println("✅ Episode ENDED");
+  }
+
+  delay(50);
+}
