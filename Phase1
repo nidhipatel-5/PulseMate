@@ -1,0 +1,64 @@
+#include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <RTClib.h>
+#include "Config.h"
+
+// OLED
+Adafruit_SSD1306 display(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
+
+// RTC
+RTC_DS3231 rtc;
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+  SPI.begin();
+
+  pinMode(PIN_BUTTON, INPUT_PULLUP);
+  pinMode(PIN_VIBRATION, OUTPUT);
+
+  Serial.println("Phase 1: Hardware Test");
+
+  // OLED
+  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR)) {
+    Serial.println("OLED FAILED");
+  } else {
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.println("OLED OK");
+    display.display();
+  }
+
+  // RTC
+  if (!rtc.begin()) {
+    Serial.println("RTC FAILED");
+  } else {
+    Serial.println("RTC OK");
+  }
+
+  // SD Card
+  if (!SD.begin(PIN_SD_CS)) {
+    Serial.println("SD FAILED");
+  } else {
+    Serial.println("SD OK");
+  }
+}
+
+void loop() {
+  // Button test
+  if (digitalRead(PIN_BUTTON) == LOW) {
+    Serial.println("Button pressed");
+
+    // Vibrate motor test
+    digitalWrite(PIN_VIBRATION, HIGH);
+    delay(300);
+    digitalWrite(PIN_VIBRATION, LOW);
+  }
+
+  delay(100);
+}
