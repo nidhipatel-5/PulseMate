@@ -1,0 +1,33 @@
+#include <Wire.h>
+#include "Config.h"
+#include "SensorManager.h"
+#include "SignalProcessor.h"
+#include "DisplayManager.h"
+
+SensorManager sensor;
+SignalProcessor processor;
+DisplayManager display;
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+
+  sensor.begin();
+  processor.begin();
+  display.begin();
+
+  Serial.println("Phase 3: Display + HR");
+}
+
+void loop() {
+  SensorSample sample;
+  SignalQuality quality;
+  HeartRateState hr;
+
+  sensor.readSample(sample, quality, millis());
+  processor.update(sample, quality, hr, millis());
+
+  display.update(hr, false, "", {});
+
+  delay(50);
+}
