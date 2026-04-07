@@ -1,0 +1,50 @@
+#include <Wire.h>
+#include <SPI.h>
+#include "Config.h"
+#include "SensorManager.h"
+#include "SignalProcessor.h"
+#include "StorageManager.h"
+#include "RTCManager.h"
+
+SensorManager sensor;
+SignalProcessor processor;
+StorageManager storage;
+RTCManager rtc;
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+  SPI.begin();
+
+  sensor.begin();
+  processor.begin();
+  rtc.begin();
+
+  if (!storage.begin(PIN_SD_CS)) {
+    Serial.println("SD FAILED");
+  }
+
+  Serial.println("Phase 5: Logging");
+}
+
+void loop() {
+  SensorSample sample;
+  SignalQuality quality;
+  HeartRateState hr;
+  DateTimeParts now = rtc.now();
+
+  sensor.readSample(sample, quality, millis());
+  processor.update(sample, quality, hr, millis());
+
+  if (hr.activeValid && now.valid) {
+    HeartRateLog log = {};
+    log.epoch = now.epoch;
+    log.bpmActive = hr.activeBpm;
+
+    storage.logHeartRate(log);
+
+    Serial.println("Logged HR");
+  }
+
+  delay(1000);
+}
