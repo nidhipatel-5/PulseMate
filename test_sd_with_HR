@@ -1,0 +1,136 @@
+#include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include "MAX30105.h"
+
+#define PIN_SD_CS 8
+#define RECORD_DURATION_MS 60000
+
+MAX30105 particleSensor;
+
+// --- YOUR EXACT ORIGINAL SIGNAL PROCESSING ---
+float dcFilter = 0;
+float acSignal = 0;
+float previousAcSignal = 0;
+bool isPeaking = false;
+long lastBeatTime = 0;
+int currentBPM = 0;
+
+const byte RATE_SIZE = 4;
+byte rates[RATE_SIZE];
+byte rateSpot = 0;
+int beatAvg = 0;
+
+bool recording = true;
+uint32_t startMs = 0;
+File dataFile;
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+  SPI.begin();
+
+  Serial.println("Initializing SD...");
+  if (!SD.begin(PIN_SD_CS)) {
+    Serial.println("SD FAILED!");
+    while (1);
+  }
+  Serial.println("SD OK!");
+
+  Serial.println("Initializing sensor...");
+  if (!particleSensor.begin(Wire, I2C_SPEED_STANDARD)) {
+    Serial.println("Sensor FAILED!");
+    while (1);
+  }
+
+  // YOUR EXACT ORIGINAL SETTINGS
+  byte ledBrightness = 60;
+  byte sampleAverage = 4;
+  byte ledMode = 2;
+  int sampleRate = 100;
+  int pulseWidth = 411;
+  int adcRange = 4096;
+  particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
+
+  dcFilter = particleSensor.getIR();
+  Serial.println("Sensor OK!");
+
+  dataFile = SD.open("hrlog.csv", FILE_WRITE);
+  if (dataFile) {
+    dataFile.println("time_ms,bpm_instant,bpm_avg");
+    Serial.println("File created! Recording for 60 seconds...");
+  } else {
+    Serial.println("Could not create file!");
+    while (1);
+  }
+
+  startMs = millis();
+}
+
+void loop() {
+  uint32_t nowMs = millis();
+
+  if (recording && (nowMs - startMs >= RECORD_DURATION_MS)) {
+    recording = false;
+    dataFile.close();
+    Serial.println("Done! File saved as hrlog.csv");
+    return;
+  }
+
+  if (!recording) return;
+
+  long rawIR = particleSensor.getIR();
+
+  // YOUR EXACT ORIGINAL FINGER DETECTION
+  if (rawIR < 50000) {
+    Serial.println("0,0");
+    currentBPM = 0;
+    beatAvg = 0;
+    delay(20);
+    return;
+  }
+
+  // YOUR EXACT ORIGINAL DC FILTER
+  dcFilter = (0.95 * dcFilter) + (0.05 * rawIR);
+  acSignal = rawIR - dcFilter;
+
+  // YOUR EXACT ORIGINAL PEAK DETECTION
+  float noiseThreshold = 50.0;
+  long currentTime = millis();
+
+  if (acSignal > noiseThreshold && previousAcSignal <= noiseThreshold && !isPeaking) {
+    isPeaking = true;
+    long timeSinceLastBeat = currentTime - lastBeatTime;
+
+    if (timeSinceLastBeat > 300) {
+      currentBPM = 60000.0 / timeSinceLastBeat;
+
+      if (currentBPM > 40 && currentBPM < 200) {
+        rates[rateSpot++] = (byte)currentBPM;
+        rateSpot %= RATE_SIZE;
+
+        beatAvg = 0;
+        for (byte x = 0; x < RATE_SIZE; x++) beatAvg += rates[x];
+        beatAvg /= RATE_SIZE;
+
+        // Write to CSV
+        dataFile.print(nowMs - startMs);
+        dataFile.print(",");
+        dataFile.print(currentBPM);
+        dataFile.print(",");
+        dataFile.println(beatAvg);
+
+        Serial.print("BPM: "); Serial.print(currentBPM);
+        Serial.print(" Avg: "); Serial.print(beatAvg);
+        Serial.print(" Time: "); Serial.print((nowMs - startMs) / 1000);
+        Serial.println("s");
+      }
+      lastBeatTime = currentTime;
+    }
+  }
+
+  if (acSignal < 0) isPeaking = false;
+  previousAcSignal = acSignal;
+
+  delay(10);
+}
