@@ -1,0 +1,40 @@
+#include <SPI.h>
+#include <SD.h>
+
+#define PIN_SD_CS 8
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("SD card test...");
+
+  if (!SD.begin(PIN_SD_CS)) {
+    Serial.println("SD FAILED — check wiring!");
+    return;
+  }
+
+  Serial.println("SD initialized!");
+
+  // Try writing a file
+  File f = SD.open("test.txt", FILE_WRITE);
+  if (f) {
+    f.println("SD card works!");
+    f.close();
+    Serial.println("File written successfully!");
+  } else {
+    Serial.println("File write FAILED!");
+  }
+
+  // Try reading it back
+  f = SD.open("test.txt");
+  if (f) {
+    Serial.print("File contents: ");
+    while (f.available()) {
+      Serial.write(f.read());
+    }
+    f.close();
+  } else {
+    Serial.println("File read FAILED!");
+  }
+}
+
+void loop() {}
